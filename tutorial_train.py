@@ -1,11 +1,14 @@
 from share import *
 
+import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from tutorial_dataset import MyDataset
 from cldm.logger import ImageLogger
 from cldm.model import create_model, load_state_dict
 
+# fix random seed
+torch.manual_seed(42)
 
 # Configs
 resume_path = './models/control_sd15_ini.ckpt'
@@ -26,10 +29,16 @@ model.only_mid_control = only_mid_control
 
 # Misc
 dataset = MyDataset()
-dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=True)
+dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size, shuffle=Tsrue)
 logger = ImageLogger(batch_frequency=logger_freq)
 trainer = pl.Trainer(gpus=1, precision=32, callbacks=[logger])
 
+# Deadlock when 1 epoch is over, need to set limit_train_batches to a int
+# Set drop_last=True is useless according to Github issue https://github.com/Lightning-AI/lightning/issues/11910#issuecomment-1055121784
+# Another solution is to set shuffle=False or set a fix seed for dataloader, to avoid ramdomness on different threads.
+# See https://github.com/Lightning-AI/lightning/issues/10947#issuecomment-1058873056
+
+# trainer = pl.Trainer(gpus=[0, 1, 2, 3], strategy="ddp", precision=32, callbacks=[logger], max_epochs=5)
 
 # Train!
 trainer.fit(model, dataloader)
